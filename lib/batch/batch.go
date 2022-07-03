@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"sync"
 	"time"
 )
 
@@ -14,5 +15,23 @@ func getOne(id int64) user {
 }
 
 func getBatch(n int64, pool int64) (res []user) {
-	return nil
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	sem := make(chan struct{}, pool)
+
+	for i := int64(0); i < n; i++ {
+		wg.Add(1)
+		go func(j int64) {
+			sem <- struct{}{}
+			user := getOne(j)
+			mu.Lock()
+			res = append(res, user)
+			mu.Unlock()
+			<-sem
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	return res
 }
